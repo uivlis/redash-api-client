@@ -1,6 +1,7 @@
 import json
 import requests
 import time
+import uuid
 from datetime import datetime
 
 class RedashAPIClient:
@@ -101,28 +102,25 @@ class RedashAPIClient:
 
     def query_and_wait_result(self, ds_id: int, query: str, timeout: int=60):
         payload = {
-            'data_source_id': ds_id,
-            'query': query,
-            'max_age': 0
+            "data_source_id": ds_id,
+            "name": "dashmt-" + str(uuid.uuid4()),
+            "query": query,
+            "description": "Made by dashmt",
+            "options": {}
         }
 
-        res = self.post('queries', payload)
-        job_id = res.json().get('job', {}).get('id')
+        res = self.post('queries', payload).json()
+        q_id = res.get('id', '')
 
         start = datetime.now()
-        while True:
-            job = self.get(f'jobs/{job_id}')
-            job = job.json().get('job', {})
-            if job.get('status') == 3:
-                query_result_id = job.get('query_result_id')
-                break
-
-            if (datetime.now() - start).total_seconds() > timeout:
-                raise Exception('Polling timeout.')
-
+        while (datetime.now() - start).total_seconds() < timeout:
+            try:
+                res = self.post(f'queries/{q_id}/results')
+                return res
+            except Exception:
+                pass
             time.sleep(0.2)
-
-        return self.get(f'query_results/{query_result_id}')
+        raise Exception('Polling timeout.')
 
     def create_visualization(self, qry_id: int, _type: str, name: str, columns: list=None, x_axis: str=None, y_axis: list=None, size_column: str=None, group_by: str=None, custom_options: dict=None, desc: str=None):
         if custom_options is None or not isinstance(custom_options, dict):
