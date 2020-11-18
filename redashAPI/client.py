@@ -106,7 +106,7 @@ class RedashAPIClient:
             'max_age': 0
         }
 
-        res = self.post('query_results', payload)
+        res = self.post('queries', payload)
         job_id = res.json().get('job', {}).get('id')
 
         start = datetime.now()
